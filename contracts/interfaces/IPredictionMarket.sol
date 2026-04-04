@@ -54,11 +54,9 @@ interface IPredictionMarket {
     function invalidate() external;
     function claim() external returns (uint256 payout);
     function claimRefund() external returns (uint256 refund);
-    
-    function getCurrentPrices() external view returns (Prices memory prices);
 
-    function getBuyQuote(bool isYes, uint256 shares) external view returns (uint256 amount, uint256 newPrice);
-    function getSellQuote(bool isYes, uint256 shares) external view returns (uint256 amount, uint256 newPrice);
+    function getBuyQuote(bool isYes, uint256 amount) external view returns (uint256 shares, Prices memory newPrices);
+    function getSellQuote(bool isYes, uint256 shares) external view returns (uint256 cost, Prices memory newPrices);
     
     function getUserPosition(address user) external view returns (UserPosition memory);
 }

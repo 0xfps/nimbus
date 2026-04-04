@@ -35,12 +35,7 @@ abstract contract PMAMM {
     }
 
     function getPriceFromReserves() public view returns (Prices memory prices) {
-        int256 leff = getEffectiveLiquidity();
-        int256 z = (yReserve - xReserve) / leff;
-        int256 xPrice = Gaussian.cdf(z);
-        int256 yPrice = MAX_PRICE - xPrice;
-
-        return Prices(xPrice, yPrice);
+        return _getPriceFromReserves(xReserve, yReserve);
     }
 
     function tradeX(bool isBuy, int256 shares) internal returns (int256 newYReserve) {
@@ -160,5 +155,14 @@ abstract contract PMAMM {
         minXReserve = currentXReserve;
 
         return (minXReserve, maxXReserve);
+    }
+
+    function _getPriceFromReserves(int256 x, int256 y) public view returns (Prices memory prices) {
+        int256 leff = getEffectiveLiquidity();
+        int256 z = (y - x) / leff;
+        int256 xPrice = Gaussian.cdf(z);
+        int256 yPrice = MAX_PRICE - xPrice;
+
+        return Prices(xPrice, yPrice);
     }
 }
