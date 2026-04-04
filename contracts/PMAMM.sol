@@ -43,7 +43,7 @@ abstract contract PMAMM {
         return Prices(xPrice, yPrice);
     }
 
-    function tradeX(bool isBuy, int256 shares) public returns (int256 newYReserve) {
+    function tradeX(bool isBuy, int256 shares) internal returns (int256 newYReserve) {
         if (isBuy && shares > xReserve) revert PMAMM_XLiquidityInsufficient();
 
         int256 leff = getEffectiveLiquidity();
@@ -70,7 +70,7 @@ abstract contract PMAMM {
         yReserve = newYReserve;
     }
 
-    function tradeY(bool isBuy, int256 shares) public returns (int256 newXReserve) {
+    function tradeY(bool isBuy, int256 shares) internal returns (int256 newXReserve) {
         if (isBuy && shares > yReserve) revert PMAMM_YLiquidityInsufficient();
 
         int256 leff = getEffectiveLiquidity();
@@ -103,7 +103,7 @@ abstract contract PMAMM {
         return (((y - x) * Gaussian.cdf(z)) / 1e18) + (leff * Gaussian.pdf(z)) - y;
     }
 
-    function evaluate(int256 x, int256 y, int256 leff) public pure returns (bool) {
+    function evaluate(int256 x, int256 y, int256 leff) internal pure returns (bool) {
         return invariant(x, y, leff) < 0;
     }
 
