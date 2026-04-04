@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
+import { Prices } from "../utils/Market.sol";
+
 interface IPredictionMarket {
     event FeesCollected(address indexed recipient, uint256 amount);
     event MarketInvalidated(uint256 timestamp);
@@ -31,11 +33,6 @@ interface IPredictionMarket {
     struct UserPosition {
         uint256 yesBalance;
         uint256 noBalance;
-    }
-
-    struct Prices {
-        uint16 yesPrice;
-        uint16 noPrice;
     }
 
     //  Slippage protection built in,

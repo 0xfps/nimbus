@@ -34,3 +34,8 @@ struct MarketCreationData {
     uint16 subcategory;
     uint64 endTime;
 }
+
+struct Prices {
+    int256 yesPrice;
+    int256 noPrice;
+}

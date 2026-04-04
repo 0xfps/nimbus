@@ -2,14 +2,167 @@
 pragma solidity ^0.8.20;
 
 import { Gaussian } from "@solstat/src/Gaussian.sol";
+import { MathLib } from "./lib/MathLib.sol";
+
+import { Prices } from "./utils/Market.sol";
 
 abstract contract PMAMM {
-    function getEffectiveLiquidity() public view returns (int256 leff) {}
-    function getPriceFromReserves() public view returns (uint16, uint16) {}
+    int256 public constant MAX_PRICE = 1e18;
+    int256 public constant STARTING_PRICE = 5 * 1e17;
 
-    function tradeX(bool isBuy, uint256 shares) public {}
-    function evaluateX(uint256 x, uint256 newYReserve, int256 leff) public view returns (bool) {}
+    uint16 public immutable LIQUIDITY_FACTOR;
+    uint96 public immutable END_TIME; // @note Checked at PredictionMarket level.
 
-    function tradeY(bool isBuy, uint256 shares) public {}
-    function evaluateY(uint256 newXReserve, uint256 y, int256 leff) public view returns (bool) {}
+    // Price untracked via variable.
+    // Price tracking happens with the getPriceFromReserves.
+    int256 public yReserve;
+    int256 public xReserve;
+
+    error PMAMM_XLiquidityInsufficient();
+    error PMAMM_YLiquidityInsufficient();
+    error PMAMM_XLiquidityDepleted();
+    error PMAMM_YLiquidityDepleted();
+
+    constructor(uint16 liquidityFactor, uint96 endTime) {
+        LIQUIDITY_FACTOR = liquidityFactor == 0 ? 100 : liquidityFactor;
+        END_TIME = endTime;
+        (xReserve, yReserve) = _getReservesFromStartingPrice();
+    }
+
+    function getEffectiveLiquidity() public view returns (int256 leff) {
+        if (END_TIME < block.timestamp) return 0;
+        return int256(LIQUIDITY_FACTOR * MathLib.sqrt(END_TIME - block.timestamp));
+    }
+
+    function getPriceFromReserves() public view returns (Prices memory prices) {
+        int256 leff = getEffectiveLiquidity();
+        int256 z = (yReserve - xReserve) / leff;
+        int256 xPrice = Gaussian.cdf(z);
+        int256 yPrice = MAX_PRICE - xPrice;
+
+        return Prices(xPrice, yPrice);
+    }
+
+    function tradeX(bool isBuy, int256 shares) public returns (int256 newYReserve) {
+        if (isBuy && shares > xReserve) revert PMAMM_XLiquidityInsufficient();
+
+        int256 leff = getEffectiveLiquidity();
+        int256 newXReserve = isBuy ? xReserve - shares : xReserve + shares;
+
+        int256 currentYReserve = yReserve;
+        (int256 min, int256 max) = _getMinAndMaxYReservesForNewXReserve(
+            currentYReserve,
+            newXReserve,
+            leff
+        );
+
+        newYReserve = MathLib.bisectY(
+            evaluateY,
+            min,
+            max,
+            newXReserve,
+            leff
+        );
+
+        if (!isBuy && newYReserve <= 0) revert PMAMM_YLiquidityDepleted();
+
+        xReserve = newXReserve;
+        yReserve = newYReserve;
+    }
+
+    function evaluateY(int256 y, int256 _newXReserve, int256 leff) public pure returns (bool) {
+        return invariant(_newXReserve, y, leff) < 0;
+    }
+
+    function invariant(int256 x, int256 y, int256 leff) internal pure returns (int256) {
+        int256 z = (y - x) / leff;
+        // Divide first part by 1e18 to maintain precision as y-x * gaussian z gives 1e36.
+        return (((y - x) * Gaussian.cdf(z)) / 1e18) + (leff * Gaussian.pdf(z)) - y;
+    }
+
+    function tradeY(bool isBuy, int256 shares) public returns (int256 newXReserve) {
+        if (isBuy && shares > yReserve) revert PMAMM_YLiquidityInsufficient();
+
+        int256 leff = getEffectiveLiquidity();
+        int256 newYReserve = isBuy ? yReserve - shares : yReserve + shares;
+
+        int256 currentXReserve = xReserve;
+        (int256 min, int256 max) = _getMinAndMaxXReservesForNewYReserve(
+            currentXReserve,
+            newYReserve,
+            leff
+        );
+
+        newXReserve = MathLib.bisectX(
+            evaluateX,
+            min,
+            max,
+            newXReserve,
+            leff
+        );
+
+        if (!isBuy && newXReserve <= 0) revert PMAMM_XLiquidityDepleted();
+
+        xReserve = newXReserve;
+        yReserve = newYReserve;
+    }
+
+    function evaluateX(int256 x, int256 _newYReserve, int256 leff) public pure returns (bool) {
+        return invariant(x, _newYReserve, leff) < 0;
+    }
+
+    function _getReservesFromStartingPrice() internal view returns (int256 x, int256 y) {
+        int256 leff = getEffectiveLiquidity();
+        int256 z = Gaussian.ppf(STARTING_PRICE);
+        int256 diff = z * leff; // Returns diff in 1e18.
+        // Keeps y in 1e18 by eliminating the 1e18 in STARTING_PRICE.
+        y = ((diff * STARTING_PRICE) / 1e18) + (leff * Gaussian.pdf(z));
+        x = y - diff;
+    }
+
+    function _getMinAndMaxYReservesForNewXReserve(int256 _currentYReserve, int256 _newXReserve, int256 leff) internal pure returns (int256, int256) {
+        int256 minYReserve; int256 maxYReserve;
+        bool minYEvaluation; bool maxYEvaluation;
+        int256 margin = 5000e18;
+        int256 currentYReserve = _currentYReserve;
+
+        while(!maxYEvaluation) {
+            maxYEvaluation = invariant(_newXReserve, currentYReserve, leff) < 0;
+            currentYReserve += margin;
+        }
+
+        maxYReserve = currentYReserve;
+
+        while(!minYEvaluation) {
+            currentYReserve -= margin;
+            minYEvaluation = invariant(_newXReserve, currentYReserve, leff) > 0;
+        }
+
+        minYReserve = currentYReserve;
+
+        return (minYReserve, maxYReserve);
+    }
+
+    function _getMinAndMaxXReservesForNewYReserve(int256 _currentXReserve, int256 _newYReserve, int256 leff) internal pure returns (int256, int256) {
+        int256 minXReserve; int256 maxXReserve;
+        bool minXEvaluation; bool maxXEvaluation;
+        int256 margin = 5000e18;
+        int256 currentXReserve = _currentXReserve;
+
+        while(!maxXEvaluation) {
+            maxXEvaluation = invariant(currentXReserve, _newYReserve, leff) < 0;
+            currentXReserve += margin;
+        }
+
+        maxXReserve = currentXReserve;
+
+        while(!minXEvaluation) {
+            currentXReserve -= margin;
+            minXEvaluation = invariant(currentXReserve, _newYReserve, leff) > 0;
+        }
+
+        minXReserve = currentXReserve;
+
+        return (minXReserve, maxXReserve);
+    }
 }
