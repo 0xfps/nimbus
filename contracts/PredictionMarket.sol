@@ -99,16 +99,16 @@ contract PredictionMarket is IPredictionMarket, ReentrancyGuard, PMAMM {
         }
 
         int256 cost = ((currentPrice + newPrice) * int256(shares)) / 2e18;
-        uint256 costInUSDC = _normalizeAmountToDefaultDecimals(uint256(cost));
+        uint256 costInUsdc = _normalizeAmountToDefaultDecimals(uint256(cost));
 
-        if (costInUSDC > amount) revert("Nimbus_InflatedCost.");
+        if (costInUsdc > amount) revert("Nimbus_InflatedCost.");
         
-        uint256 balance = amount - costInUSDC;
+        uint256 balance = amount - costInUsdc;
 
-        uint256 platformFee = (costInUSDC * PLATFORM_FEE_BPS) / 100;
+        uint256 platformFee = (costInUsdc * PLATFORM_FEE_BPS) / 100;
         accumulatedFees += platformFee;
 
-        uint256 tradingAmount = costInUSDC - platformFee;
+        uint256 tradingAmount = costInUsdc - platformFee;
         collateralPool += tradingAmount;
 
         TOKEN.safeTransferFrom(address(this), msg.sender, balance);
@@ -151,13 +151,13 @@ contract PredictionMarket is IPredictionMarket, ReentrancyGuard, PMAMM {
         }
 
         int256 cost = ((currentPrice + newPrice) * int256(shares)) / 2e18;
-        uint256 costInUSDC = _normalizeAmountTo18Decimals(uint256(cost));
+        uint256 costInUsdc = _normalizeAmountTo18Decimals(uint256(cost));
 
-        if (costInUSDC > minReturn) revert("Nimbus_InflatedCost.");
+        if (costInUsdc > minReturn) revert("Nimbus_InflatedCost.");
 
-        collateralPool -= costInUSDC;
+        collateralPool -= costInUsdc;
 
-        TOKEN.safeTransferFrom(address(this), receiver, costInUSDC);
+        TOKEN.safeTransferFrom(address(this), receiver, costInUsdc);
 
         emit Trade(msg.sender, isYes, false, shares, uint256(cost), newPrices);
     }
@@ -239,69 +239,17 @@ contract PredictionMarket is IPredictionMarket, ReentrancyGuard, PMAMM {
         int256 price = isYes ? getPriceFromReserves().yesPrice : getPriceFromReserves().noPrice;
         shares = (normalizedTradingAmount * 1e18) / uint256(price);
 
-        int256 leff = getEffectiveLiquidity();
-        int256 newReserve = isYes ? xReserve - int256(shares) : yReserve - int256(shares);
+        (int256 newXReserve, int256 newYReserve) = isYes ? _simulateXTrade(true, int256(shares)) : _simulateYTrade(true, int256(shares));
 
-        int256 currentReserve = isYes ? yReserve : xReserve; // Opposite market side.
-        (int256 min, int256 max) = isYes ? _getMinAndMaxYReservesForNewXReserve(
-            currentReserve,
-            newReserve,
-            leff
-        ) : _getMinAndMaxXReservesForNewYReserve(
-            currentReserve,
-            newReserve,
-            leff
-        );
-
-        int256 resultingReserve = isYes ? MathLib.bisectY(
-            evaluate,
-            min, // Get average Y from min and max for evaluate.
-            max,
-            newReserve,
-            leff
-        ) : MathLib.bisectX(
-            evaluate,
-            min, // Get average X from min and max for evaluate.
-            max,
-            newReserve,
-            leff
-        );
-
-        newPrices = isYes ? _getPriceFromReserves(newReserve, resultingReserve) : _getPriceFromReserves(resultingReserve, newReserve);
+        newPrices = _getPriceFromReserves(newXReserve, newYReserve);
     }
 
     function getSellQuote(bool isYes, uint256 shares) public view returns (uint256 cost, Prices memory newPrices) {
         int256 price = isYes ? getPriceFromReserves().yesPrice : getPriceFromReserves().noPrice;
 
-        int256 leff = getEffectiveLiquidity();
-        int256 newReserve = isYes ? xReserve + int256(shares) : yReserve + int256(shares);
+        (int256 newXReserve, int256 newYReserve) = isYes ? _simulateXTrade(false, int256(shares)) : _simulateYTrade(false, int256(shares));
 
-        int256 currentReserve = isYes ? yReserve : xReserve; // Opposite market side.
-        (int256 min, int256 max) = isYes ? _getMinAndMaxYReservesForNewXReserve(
-            currentReserve,
-            newReserve,
-            leff
-        ) : _getMinAndMaxXReservesForNewYReserve(
-            currentReserve,
-            newReserve,
-            leff
-        );
-
-        int256 resultingReserve = isYes ? MathLib.bisectY(
-            evaluate,
-            min, // Get average Y from min and max for evaluate.
-            max,
-            newReserve,
-            leff
-        ) : MathLib.bisectX(
-            evaluate,
-            min, // Get average X from min and max for evaluate.
-            max,
-            newReserve,
-            leff
-        );
-
-        newPrices = isYes ? _getPriceFromReserves(newReserve, resultingReserve) : _getPriceFromReserves(resultingReserve, newReserve);
+        newPrices = _getPriceFromReserves(newXReserve, newYReserve);
         int256 newPrice = isYes ? newPrices.yesPrice : newPrices.noPrice;
 
         int256 cost18 = ((newPrice + price) * int256(shares)) / 2e18;
