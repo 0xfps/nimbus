@@ -20,37 +20,37 @@ library MathLib {
 
     function bisectY(
         function(int256, int256, int256) pure returns (bool) evaluate,
-        int256 lowLimit,
-        int256 highLimit,
+        int256 yLowLimit,
+        int256 yHighLimit,
         int256 newXReserve,
         int256 leff
-    ) internal pure returns (int256 low) {
+    ) internal pure returns (int256 yLow) {
         int256 fineness = 1e5;
-        low = lowLimit;
-        int256 high = highLimit;
+        yLow = yLowLimit;
+        int256 yHigh = yHighLimit;
 
-        while (high - low > fineness) {
-            int256 avg = (high + low) / 2;
-            if (evaluate(avg, newXReserve, leff)) high = avg;
-            else low = avg; 
+        while (yHigh - yLow > fineness) {
+            int256 yAvg = (yHigh + yLow) / 2;
+            if (evaluate(newXReserve, yAvg, leff)) yHigh = yAvg;
+            else yLow = yAvg; 
         }
     }
 
     function bisectX(
         function(int256, int256, int256) pure returns (bool) evaluate,
-        int256 lowLimit,
-        int256 highLimit,
-        int256 newXReserve,
+        int256 xLowLimit,
+        int256 xHighLimit,
+        int256 newYReserve,
         int256 leff
-    ) internal pure returns (int256 low) {
+    ) internal pure returns (int256 xLow) {
         int256 fineness = 1e5;
-        low = lowLimit;
-        int256 high = highLimit;
+        xLow = xLowLimit;
+        int256 xHigh = xHighLimit;
 
-        while (high - low > fineness) {
-            int256 avg = (high + low) / 2;
-            if (evaluate(newXReserve, avg, leff)) high = avg;
-            else low = avg; 
+        while (xHigh - xLow > fineness) {
+            int256 xAvg = (xHigh + xLow) / 2;
+            if (evaluate(xAvg, newYReserve, leff)) xHigh = xAvg;
+            else xLow = xAvg; 
         }
     }
 }

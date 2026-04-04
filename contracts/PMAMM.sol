@@ -57,8 +57,8 @@ abstract contract PMAMM {
         );
 
         newYReserve = MathLib.bisectY(
-            evaluateY,
-            min,
+            evaluate,
+            min, // Get average Y from min and max for evaluate.
             max,
             newXReserve,
             leff
@@ -68,16 +68,6 @@ abstract contract PMAMM {
 
         xReserve = newXReserve;
         yReserve = newYReserve;
-    }
-
-    function evaluateY(int256 y, int256 _newXReserve, int256 leff) public pure returns (bool) {
-        return invariant(_newXReserve, y, leff) < 0;
-    }
-
-    function invariant(int256 x, int256 y, int256 leff) internal pure returns (int256) {
-        int256 z = (y - x) / leff;
-        // Divide first part by 1e18 to maintain precision as y-x * gaussian z gives 1e36.
-        return (((y - x) * Gaussian.cdf(z)) / 1e18) + (leff * Gaussian.pdf(z)) - y;
     }
 
     function tradeY(bool isBuy, int256 shares) public returns (int256 newXReserve) {
@@ -94,10 +84,10 @@ abstract contract PMAMM {
         );
 
         newXReserve = MathLib.bisectX(
-            evaluateX,
-            min,
+            evaluate,
+            min, // Get average X from min and max for evaluate.
             max,
-            newXReserve,
+            newYReserve,
             leff
         );
 
@@ -107,8 +97,14 @@ abstract contract PMAMM {
         yReserve = newYReserve;
     }
 
-    function evaluateX(int256 x, int256 _newYReserve, int256 leff) public pure returns (bool) {
-        return invariant(x, _newYReserve, leff) < 0;
+    function invariant(int256 x, int256 y, int256 leff) internal pure returns (int256) {
+        int256 z = (y - x) / leff;
+        // Divide first part by 1e18 to maintain precision as y-x * gaussian z gives 1e36.
+        return (((y - x) * Gaussian.cdf(z)) / 1e18) + (leff * Gaussian.pdf(z)) - y;
+    }
+
+    function evaluate(int256 x, int256 y, int256 leff) public pure returns (bool) {
+        return invariant(x, y, leff) < 0;
     }
 
     function _getReservesFromStartingPrice() internal view returns (int256 x, int256 y) {
