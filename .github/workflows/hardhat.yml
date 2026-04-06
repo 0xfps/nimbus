@@ -1,0 +1,22 @@
+name: hardhat-test
+on: [push]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    name: Hardhat unit test
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v2
+    - name: Environment
+      uses: actions/setup-node@v3
+    - name: Test-1
+      uses: ambersun1234/hardhat-test-action@v1
+      with:
+        network: hardhat
+    - name: Test-2
+      uses: ambersun1234/hardhat-test-action@v1
+      with:
+        network: sepolia
+        private_key: ${{ secrets.PRIVATE_KEY }}
+        rpc_url: ${{ secrets.RPC_URL }}
