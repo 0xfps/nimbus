@@ -35,34 +35,15 @@ abstract contract PMAMM {
     }
 
     function getPriceFromReserves() public view returns (Prices memory prices) {
-        int256 leff = getEffectiveLiquidity();
-        int256 z = (yReserve - xReserve) / leff;
-        int256 xPrice = Gaussian.cdf(z);
-        int256 yPrice = MAX_PRICE - xPrice;
-
-        return Prices(xPrice, yPrice);
+        return _getPriceFromReserves(xReserve, yReserve);
     }
 
     function tradeX(bool isBuy, int256 shares) internal returns (int256 newYReserve) {
         if (isBuy && shares > xReserve) revert PMAMM_XLiquidityInsufficient();
 
-        int256 leff = getEffectiveLiquidity();
-        int256 newXReserve = isBuy ? xReserve - shares : xReserve + shares;
-
-        int256 currentYReserve = yReserve;
-        (int256 min, int256 max) = _getMinAndMaxYReservesForNewXReserve(
-            currentYReserve,
-            newXReserve,
-            leff
-        );
-
-        newYReserve = MathLib.bisectY(
-            evaluate,
-            min, // Get average Y from min and max for evaluate.
-            max,
-            newXReserve,
-            leff
-        );
+        (int256 newX, int256 newY) = _simulateXTrade(isBuy, shares);
+        int256 newXReserve = newX;
+        newYReserve = newY;
 
         if (!isBuy && newYReserve <= 0) revert PMAMM_YLiquidityDepleted();
 
@@ -73,23 +54,9 @@ abstract contract PMAMM {
     function tradeY(bool isBuy, int256 shares) internal returns (int256 newXReserve) {
         if (isBuy && shares > yReserve) revert PMAMM_YLiquidityInsufficient();
 
-        int256 leff = getEffectiveLiquidity();
-        int256 newYReserve = isBuy ? yReserve - shares : yReserve + shares;
-
-        int256 currentXReserve = xReserve;
-        (int256 min, int256 max) = _getMinAndMaxXReservesForNewYReserve(
-            currentXReserve,
-            newYReserve,
-            leff
-        );
-
-        newXReserve = MathLib.bisectX(
-            evaluate,
-            min, // Get average X from min and max for evaluate.
-            max,
-            newYReserve,
-            leff
-        );
+        (int256 newX, int256 newY) = _simulateYTrade(isBuy, shares);
+        newXReserve = newX;
+        int256 newYReserve = newY;
 
         if (!isBuy && newXReserve <= 0) revert PMAMM_XLiquidityDepleted();
 
@@ -105,6 +72,46 @@ abstract contract PMAMM {
 
     function evaluate(int256 x, int256 y, int256 leff) internal pure returns (bool) {
         return invariant(x, y, leff) < 0;
+    }
+
+    function _simulateXTrade(bool isBuy, int256 shares) internal view returns (int256 newXReserve, int256 newYReserve) {
+        int256 leff = getEffectiveLiquidity();
+        newXReserve = isBuy ? xReserve - shares : xReserve + shares;
+
+        int256 currentYReserve = yReserve;
+        (int256 min, int256 max) = _getMinAndMaxYReservesForNewXReserve(
+            currentYReserve,
+            newXReserve,
+            leff
+        );
+
+        newYReserve = MathLib.bisectY(
+            evaluate,
+            min, // Get average Y from min and max for evaluate.
+            max,
+            newXReserve,
+            leff
+        );
+    }
+
+    function _simulateYTrade(bool isBuy, int256 shares) internal view returns (int256 newXReserve, int256 newYReserve) {
+        int256 leff = getEffectiveLiquidity();
+        newYReserve = isBuy ? yReserve - shares : yReserve + shares;
+
+        int256 currentXReserve = xReserve;
+        (int256 min, int256 max) = _getMinAndMaxXReservesForNewYReserve(
+            currentXReserve,
+            newYReserve,
+            leff
+        );
+
+        newXReserve = MathLib.bisectX(
+            evaluate,
+            min, // Get average X from min and max for evaluate.
+            max,
+            newYReserve,
+            leff
+        );
     }
 
     function _getReservesFromStartingPrice() internal view returns (int256 x, int256 y) {
@@ -160,5 +167,14 @@ abstract contract PMAMM {
         minXReserve = currentXReserve;
 
         return (minXReserve, maxXReserve);
+    }
+
+    function _getPriceFromReserves(int256 x, int256 y) public view returns (Prices memory prices) {
+        int256 leff = getEffectiveLiquidity();
+        int256 z = (y - x) / leff;
+        int256 xPrice = Gaussian.cdf(z);
+        int256 yPrice = MAX_PRICE - xPrice;
+
+        return Prices(xPrice, yPrice);
     }
 }

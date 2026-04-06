@@ -18,6 +18,8 @@ interface IPredictionMarketFactory {
 
     error BackdatedMarket();
     error InvalidEndTime();
+    error InvalidFee();
+    error InvalidRecipient();
     error InvalidDuration();
     error ResolverNotApproved();
     error Unauthorized();
