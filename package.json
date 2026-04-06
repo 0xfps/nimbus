@@ -10,6 +10,7 @@
     "hardhat": "^2.28.6"
   },
   "dependencies": {
-    "@0xfps/pmamm-js": "^0.0.7"
+    "@0xfps/pmamm-js": "^0.0.7",
+    "dotenv": "^17.4.1"
   }
 }
