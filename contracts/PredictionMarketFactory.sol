@@ -3,7 +3,7 @@ pragma solidity ^0.8.20;
 
 import { IPredictionMarketFactory } from "./interfaces/IPredictionMarketFactory.sol";
 
-import { MarketCreationData, MarketType } from "./utils/Market.sol";
+import { MarketCreationData } from "./utils/Market.sol";
 import { PredictionMarket } from "./PredictionMarket.sol";
 
 /**
@@ -28,7 +28,7 @@ contract PredictionMarketFactory is IPredictionMarketFactory {
     receive() external payable {}
 
     modifier onlyOwner() {
-        require(msg.sender == owner, Unauthorized());
+        if (msg.sender != owner) revert Nimbus_Unauthorized();
         _;
     }
 
@@ -37,8 +37,9 @@ contract PredictionMarketFactory is IPredictionMarketFactory {
         uint16 _platformFeeBps,
         address _token
     ) {
-        require(_feeRecipient != address(0), "Invalid recipient");
-        require(_platformFeeBps <= MAX_FEE_BPS, "Fee too high");
+
+        if (_feeRecipient == address(0)) revert Nimbus_InvalidRecipient();
+        if (_platformFeeBps > MAX_FEE_BPS) revert Nimbus_InvalidFee();
         
         token = _token;
         owner = msg.sender;
@@ -53,15 +54,7 @@ contract PredictionMarketFactory is IPredictionMarketFactory {
 
         allMarketsLength++;
 
-        emit MarketCreated(
-            market,
-            msg.sender,
-            marketCreationData.resolver,
-            marketCreationData.question,
-            marketCreationData.category,
-            MarketType.BINARY,
-            marketCreationData.endTime
-        );
+        emit MarketCreated(market, msg.sender);
     }
 
     function approveResolver(address resolver) external onlyOwner {
@@ -91,7 +84,7 @@ contract PredictionMarketFactory is IPredictionMarketFactory {
     }
 
     function transferOwnership(address newOwner) external onlyOwner {
-        require(newOwner != address(0), "Invalid owner");
+        if (newOwner == address(0)) revert Nimbus_InvalidOwner();
         owner = newOwner;
     }
 
@@ -104,8 +97,9 @@ contract PredictionMarketFactory is IPredictionMarketFactory {
         uint256 duration = marketCreationData.endTime - block.timestamp;
         uint64 marketEndTime = marketCreationData.endTime;
 
-        if (marketEndTime <= block.timestamp) revert InvalidEndTime();
-        if (!approvedResolvers[resolver]) revert ResolverNotApproved();
-        if (duration < minMarketDuration || duration > maxMarketDuration) revert InvalidDuration();
+        if (marketEndTime <= block.timestamp) revert Nimbus_InvalidEndTime();
+        if (marketCreationData.feeRecipient == address(0)) revert Nimbus_InvalidRecipient();
+        if (!approvedResolvers[resolver]) revert Nimbus_ResolverNotApproved();
+        if (duration < minMarketDuration || duration > maxMarketDuration) revert Nimbus_InvalidDuration();
     }
 }

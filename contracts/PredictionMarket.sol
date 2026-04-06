@@ -6,27 +6,23 @@ import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { IERC20Metadata } from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import { IPredictionMarket } from "./interfaces/IPredictionMarket.sol";
 
-import { MathLib } from "./lib/MathLib.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 import { MarketCreationData, MarketState } from "./utils/Market.sol";
 import { PMAMM } from "./PMAMM.sol";
 import { Prices } from "./utils/Market.sol";
-import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 /**
  * @title PredictionMarket
  * @notice Individual binary prediction market with AMM-based trading
  * @dev Uses constant product AMM for price discovery and liquidity
  */
-contract PredictionMarket is IPredictionMarket, ReentrancyGuard, PMAMM {
-    using MathLib for uint256;
+contract PredictionMarket is IPredictionMarket, PMAMM {
     using SafeERC20 for IERC20;
     
+    bool internal guard;
     uint16 public constant PRESET_LIQUIDITY_FACTOR = 10000;
-    uint8 public constant NORMALIZER_DECIMAL = 18;
     uint16 public constant PLATFORM_FEE_BPS = 10;
-    uint16 public constant TRADING_FEE_BPS = 30;
 
     IERC20 public immutable TOKEN; // Collateral. Trading token. USDC.
     address public immutable CREATOR;
@@ -53,13 +49,15 @@ contract PredictionMarket is IPredictionMarket, ReentrancyGuard, PMAMM {
 
     receive() external payable {}
 
+    modifier nonReentrant() {
+        if (guard) revert Nimbus_Reentrancy();
+        guard = true;
+        _;
+        delete guard;
+    }
+
     constructor(address token, MarketCreationData memory marketCreationData)
     PMAMM (PRESET_LIQUIDITY_FACTOR, marketCreationData.endTime) {
-        require(marketCreationData.endTime > block.timestamp, "Invalid end time");
-        require(marketCreationData.creator != address(0), "Invalid creator");
-        require(marketCreationData.resolver != address(0), "Invalid resolver");
-        require(marketCreationData.feeRecipient != address(0), "Invalid fee recipient");
-        
         TOKEN = IERC20(token);
 
         question = marketCreationData.question;
@@ -69,11 +67,11 @@ contract PredictionMarket is IPredictionMarket, ReentrancyGuard, PMAMM {
         FEE_RECIPIENT = marketCreationData.feeRecipient;
     }
 
-    // Amount is coming in, USDC maybe, if yes you're buying yes, else buying no.
+    // Amount is coming in USDC.
     function buy(bool isYes, uint256 amount, uint256 shares) external nonReentrant {
-        require(state == MarketState.OPEN, Nimbus_MarketClosed());
-        require(block.timestamp < END_TIME, Nimbus_MarketClosed());
-        require(xReserve > 0 && yReserve > 0, Nimbus_InsufficientLiquidity());
+        if (state != MarketState.OPEN) revert Nimbus_MarketClosed();
+        if (block.timestamp >= END_TIME) revert Nimbus_MarketClosed();
+        if (xReserve <= 0 || yReserve <= 0) revert Nimbus_InsufficientLiquidity();
 
         TOKEN.safeTransferFrom(msg.sender, address(this), amount);
 
@@ -101,7 +99,7 @@ contract PredictionMarket is IPredictionMarket, ReentrancyGuard, PMAMM {
         int256 cost = ((currentPrice + newPrice) * int256(shares)) / 2e18;
         uint256 costInUsdc = _normalizeAmountToDefaultDecimals(uint256(cost));
 
-        if (costInUsdc > amount) revert("Nimbus_InflatedCost.");
+        if (costInUsdc > amount) revert Nimbus_InflatedCost();
         
         uint256 balance = amount - costInUsdc;
 
@@ -113,21 +111,16 @@ contract PredictionMarket is IPredictionMarket, ReentrancyGuard, PMAMM {
 
         TOKEN.safeTransferFrom(address(this), msg.sender, balance);
 
-        emit Trade(msg.sender, isYes, true, shares, uint256(cost), newPrices);
+        emit Buy(msg.sender, isYes, shares);
     }
 
-    function sell(
-        bool isYes,
-        uint256 shares,
-        uint256 minReturn,
-        address receiver
-    ) external {
-        require(state == MarketState.OPEN, Nimbus_MarketClosed());
-        require(block.timestamp < END_TIME, Nimbus_MarketClosed());
-        require(shares > 0, Nimbus_InvalidAmount());
+    function sell(bool isYes, uint256 shares, uint256 minReturn) external {
+        if (state != MarketState.OPEN) revert Nimbus_MarketClosed();
+        if (block.timestamp >= END_TIME) revert Nimbus_MarketClosed();
+        if (shares == 0) revert Nimbus_InvalidAmount();
         
         uint256 userBalance = isYes ? userPosition[msg.sender].yesBalance : userPosition[msg.sender].noBalance;
-        require(userBalance > shares, "Insufficient shares");
+        if (userBalance < shares) revert Nimbus_InsufficientAmount();
 
         Prices memory newPrices;
         int256 currentPrice;
@@ -153,19 +146,19 @@ contract PredictionMarket is IPredictionMarket, ReentrancyGuard, PMAMM {
         int256 cost = ((currentPrice + newPrice) * int256(shares)) / 2e18;
         uint256 costInUsdc = _normalizeAmountTo18Decimals(uint256(cost));
 
-        if (costInUsdc > minReturn) revert("Nimbus_InflatedCost.");
+        if (costInUsdc > minReturn) revert Nimbus_InflatedCost();
 
         collateralPool -= costInUsdc;
 
-        TOKEN.safeTransferFrom(address(this), receiver, costInUsdc);
+        TOKEN.safeTransferFrom(address(this), msg.sender, costInUsdc);
 
-        emit Trade(msg.sender, isYes, false, shares, uint256(cost), newPrices);
+        emit Sell(msg.sender, isYes, shares);
     }
 
     function resolve(bool _outcome) external {
-        require(msg.sender == RESOLVER, Nimbus_Unauthorized());
-        require(block.timestamp >= RESOLUTION_TIME, Nimbus_TooEarly());
-        require(state == MarketState.CLOSED || state == MarketState.OPEN, Nimbus_MarketAlreadyResolved());
+        if (msg.sender != RESOLVER) revert Nimbus_Unauthorized();
+        if (block.timestamp < RESOLUTION_TIME) revert Nimbus_TooEarly();
+        if (state == MarketState.RESOLVED) revert Nimbus_MarketAlreadyResolved();
         
         outcome = _outcome;
         state = MarketState.RESOLVED;
@@ -174,9 +167,8 @@ contract PredictionMarket is IPredictionMarket, ReentrancyGuard, PMAMM {
     }
 
     function invalidate() external {
-        require(msg.sender == RESOLVER || msg.sender == CREATOR, Nimbus_Unauthorized());
-        // Only invalidate an open/closed market.
-        require(state == MarketState.OPEN || state == MarketState.CLOSED, Nimbus_MarketAlreadyResolved());
+        if (msg.sender != RESOLVER && msg.sender != CREATOR) revert Nimbus_Unauthorized();
+        if (state == MarketState.RESOLVED) revert Nimbus_MarketAlreadyResolved();
         
         state = MarketState.INVALID;
         
@@ -184,12 +176,12 @@ contract PredictionMarket is IPredictionMarket, ReentrancyGuard, PMAMM {
     }
 
     function claim() external returns (uint256 payout) {
-        require(state == MarketState.RESOLVED, Nimbus_MarketNotResolved());
-        require(!hasClaimed[msg.sender], Nimbus_AlreadyClaimed());
+        if (state != MarketState.RESOLVED) revert Nimbus_MarketNotResolved();
+        if (hasClaimed[msg.sender]) revert Nimbus_AlreadyClaimed();
         
         UserPosition memory position = userPosition[msg.sender];
         uint256 winningShares = outcome ? position.yesBalance : position.noBalance;
-        require(winningShares > 0, Nimbus_NoWinnings());
+        if (winningShares == 0) revert Nimbus_NoWinnings();
         
         uint256 totalWinningShares = outcome ? yesShares : noShares;
         payout = (winningShares * collateralPool) / totalWinningShares;
@@ -202,13 +194,13 @@ contract PredictionMarket is IPredictionMarket, ReentrancyGuard, PMAMM {
     }
 
     function claimRefund() external returns (uint256 refund) {
-        require(state == MarketState.INVALID, "Market not invalid");
-        require(!hasClaimed[msg.sender], Nimbus_AlreadyClaimed());
+        if (state != MarketState.INVALID) revert Nimbus_MarketNotInvalid();
+        if (hasClaimed[msg.sender]) revert Nimbus_AlreadyClaimed();
         
         UserPosition memory position = userPosition[msg.sender];
         uint256 userYes = position.yesBalance;
         uint256 userNo = position.noBalance;
-        require(userYes > 0 || userNo > 0, Nimbus_NoWinnings());
+        if (userYes == 0 && userNo == 0) revert Nimbus_NoWinnings();
         
         uint256 totalUserShares = userYes + userNo;
         uint256 totalShares = yesShares + noShares;
@@ -222,8 +214,8 @@ contract PredictionMarket is IPredictionMarket, ReentrancyGuard, PMAMM {
     }
 
     function collectFees() external {
-        require(msg.sender == FEE_RECIPIENT, Nimbus_Unauthorized());
-        require(accumulatedFees > 0, "No fees");
+        if (msg.sender != FEE_RECIPIENT) revert Nimbus_Unauthorized();
+        if (accumulatedFees == 0) revert Nimbus_NoFees();
         
         uint256 fees = accumulatedFees;
         accumulatedFees = 0;
@@ -284,8 +276,8 @@ contract PredictionMarket is IPredictionMarket, ReentrancyGuard, PMAMM {
     }
 
     function forceClose() external {
-        require(block.timestamp >= END_TIME, Nimbus_TooEarly());
-        require(state == MarketState.OPEN, "Not open");
+        if (block.timestamp < END_TIME) revert Nimbus_TooEarly();
+        if (state != MarketState.OPEN) revert Nimbus_NotOpen();
         
         state = MarketState.CLOSED;
     }
