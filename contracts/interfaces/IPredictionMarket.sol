@@ -7,8 +7,8 @@ interface IPredictionMarket {
     event FeesCollected(address indexed recipient, uint256 amount);
     event MarketInvalidated(uint256 timestamp);
     event MarketResolved(bool indexed outcome, uint256 timestamp);
-    event Buy(address indexed trader, bool indexed isYes, uint256 shares);
-    event Sell(address indexed trader, bool indexed isYes, uint256 shares);
+    event Buy(address indexed trader, bool indexed isYes, uint256 shares, uint256 cost);
+    event Sell(address indexed trader, bool indexed isYes, uint256 shares, uint256 cost);
     event WinningsClaimed(address indexed user, uint256 amount);
 
     error Nimbus_AlreadyClaimed();

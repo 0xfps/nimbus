@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { IERC20Metadata } from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import { IPredictionMarket } from "./interfaces/IPredictionMarket.sol";
@@ -22,9 +21,9 @@ contract PredictionMarket is IPredictionMarket, PMAMM {
     
     bool internal guard;
     uint16 public constant PRESET_LIQUIDITY_FACTOR = 10000;
-    uint16 public constant PLATFORM_FEE_BPS = 10;
+    uint16 public constant PLATFORM_FEE_BPS = 30;
 
-    IERC20 public immutable TOKEN; // Collateral. Trading token. USDC.
+    IERC20 public immutable TOKEN;
     address public immutable CREATOR;
     address public immutable RESOLVER;
     address public immutable FEE_RECIPIENT;
@@ -111,7 +110,7 @@ contract PredictionMarket is IPredictionMarket, PMAMM {
 
         TOKEN.safeTransferFrom(address(this), msg.sender, balance);
 
-        emit Buy(msg.sender, isYes, shares);
+        emit Buy(msg.sender, isYes, shares, costInUsdc);
     }
 
     function sell(bool isYes, uint256 shares, uint256 minReturn) external {
@@ -143,6 +142,7 @@ contract PredictionMarket is IPredictionMarket, PMAMM {
             newPrice = newPrices.noPrice;
         }
 
+        // Possible bug here in cost of sale computation.
         int256 cost = ((currentPrice + newPrice) * int256(shares)) / 2e18;
         uint256 costInUsdc = _normalizeAmountTo18Decimals(uint256(cost));
 
@@ -152,7 +152,7 @@ contract PredictionMarket is IPredictionMarket, PMAMM {
 
         TOKEN.safeTransferFrom(address(this), msg.sender, costInUsdc);
 
-        emit Sell(msg.sender, isYes, shares);
+        emit Sell(msg.sender, isYes, shares, costInUsdc);
     }
 
     function resolve(bool _outcome) external {
