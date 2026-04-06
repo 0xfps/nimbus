@@ -10,6 +10,19 @@ jobs:
       uses: actions/checkout@v2
     - name: Environment
       uses: actions/setup-node@v3
+    # Remove if necessary.
+    - name: Foundry
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+
+    - name: Install Foundry
+      uses: foundry-rs/foundry-toolchain@v1
+
+    - name: Show Forge version
+      run: |
+          forge --version
+    # Remove if necessary.
     - name: Test-1
       uses: ambersun1234/hardhat-test-action@v1
       with:
