@@ -7,6 +7,7 @@ import { Signer } from "ethers"
 import { dave, edgar, fisk } from "../constants"
 import { MarketCreationDataStruct } from "../../typechain-types/IPredictionMarketFactory"
 import { ContractTransactionResponse } from "ethers"
+import { END_TIME, NOW } from "../boilerplate/deploy-market"
 
 describe("Create Binary Market Tests.", function () {
     let PredictionMarketFactory: PredictionMarketFactory,
@@ -43,7 +44,7 @@ describe("Create Binary Market Tests.", function () {
     it("Should revert due to invalid end time.", async function () {
         marketCreationData.creator = aliceAddress
         marketCreationData.resolver = bobAddress
-        marketCreationData.endTime = (BigInt(new Date().getTime()) / BigInt(1000)) - BigInt(600_000)
+        marketCreationData.endTime = NOW - 1_600_000
 
         await expect(PredictionMarketFactory.connect(alice).createBinaryMarket(marketCreationData))
             .to.be.revertedWithCustomError(PredictionMarketFactory, "Nimbus_InvalidEndTime()")
@@ -52,7 +53,7 @@ describe("Create Binary Market Tests.", function () {
     it("Should revert due to invalid fee recipient.", async function () {
         marketCreationData.creator = aliceAddress
         marketCreationData.resolver = bobAddress
-        marketCreationData.endTime = (BigInt(new Date().getTime()) / BigInt(1000)) + BigInt(600_000)
+        marketCreationData.endTime = END_TIME
         marketCreationData.feeRecipient = ZeroAddress
 
         await expect(PredictionMarketFactory.connect(alice).createBinaryMarket(marketCreationData))
@@ -62,7 +63,7 @@ describe("Create Binary Market Tests.", function () {
     it("Should revert due to invalid resolver.", async function () {
         marketCreationData.creator = aliceAddress
         marketCreationData.resolver = dave
-        marketCreationData.endTime = (BigInt(new Date().getTime()) / BigInt(1000)) + BigInt(600_000)
+        marketCreationData.endTime = END_TIME
         marketCreationData.feeRecipient = fisk
 
         await expect(PredictionMarketFactory.connect(alice).createBinaryMarket(marketCreationData))
@@ -74,12 +75,12 @@ describe("Create Binary Market Tests.", function () {
 
         marketCreationData.creator = aliceAddress
         marketCreationData.resolver = aliceAddress
-        marketCreationData.endTime = (BigInt(new Date().getTime()) / BigInt(1000)) + BigInt(600_000)
+        marketCreationData.endTime = END_TIME
         marketCreationData.feeRecipient = fisk
 
         tx = await PredictionMarketFactory.connect(alice).createBinaryMarket(marketCreationData)
         await tx.wait()
-        
+
         const newMarketCount = await PredictionMarketFactory.allMarketsLength()
 
         tx = await PredictionMarketFactory.connect(alice).createBinaryMarket(marketCreationData)

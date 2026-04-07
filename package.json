@@ -6,6 +6,7 @@
     "test": "npx hardhat test"
   },
   "devDependencies": {
+    "@keep-network/hardhat-helpers": "^0.7.2",
     "@nomicfoundation/hardhat-foundry": "^1.2.1",
     "@nomicfoundation/hardhat-toolbox": "^6.1.2",
     "hardhat": "^2.28.6"

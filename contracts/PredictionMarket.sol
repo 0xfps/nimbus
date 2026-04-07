@@ -67,7 +67,7 @@ contract PredictionMarket is IPredictionMarket, PMAMM {
     }
 
     // Amount is coming in USDC.
-    function buy(bool isYes, uint256 amount, uint256 shares) external nonReentrant {
+    function buy(bool isYes, uint256 amount, uint256 shares) public nonReentrant {
         if (state != MarketState.OPEN) revert Nimbus_MarketClosed();
         if (block.timestamp >= END_TIME) revert Nimbus_MarketClosed();
         if (xReserve <= 0 || yReserve <= 0) revert Nimbus_InsufficientLiquidity();
@@ -113,7 +113,7 @@ contract PredictionMarket is IPredictionMarket, PMAMM {
         emit Buy(msg.sender, isYes, shares, costInUsdc);
     }
 
-    function sell(bool isYes, uint256 shares, uint256 minReturn) external {
+    function sell(bool isYes, uint256 shares, uint256 minReturn) public {
         if (state != MarketState.OPEN) revert Nimbus_MarketClosed();
         if (block.timestamp >= END_TIME) revert Nimbus_MarketClosed();
         if (shares == 0) revert Nimbus_InvalidAmount();
@@ -155,27 +155,7 @@ contract PredictionMarket is IPredictionMarket, PMAMM {
         emit Sell(msg.sender, isYes, shares, costInUsdc);
     }
 
-    function resolve(bool _outcome) external {
-        if (msg.sender != RESOLVER) revert Nimbus_Unauthorized();
-        if (block.timestamp < RESOLUTION_TIME) revert Nimbus_TooEarly();
-        if (state == MarketState.RESOLVED) revert Nimbus_MarketAlreadyResolved();
-        
-        outcome = _outcome;
-        state = MarketState.RESOLVED;
-        
-        emit MarketResolved(_outcome, block.timestamp);
-    }
-
-    function invalidate() external {
-        if (msg.sender != RESOLVER && msg.sender != CREATOR) revert Nimbus_Unauthorized();
-        if (state == MarketState.RESOLVED) revert Nimbus_MarketAlreadyResolved();
-        
-        state = MarketState.INVALID;
-        
-        emit MarketInvalidated(block.timestamp);
-    }
-
-    function claim() external returns (uint256 payout) {
+    function claim() public returns (uint256 payout) {
         if (state != MarketState.RESOLVED) revert Nimbus_MarketNotResolved();
         if (hasClaimed[msg.sender]) revert Nimbus_AlreadyClaimed();
         
@@ -193,7 +173,7 @@ contract PredictionMarket is IPredictionMarket, PMAMM {
         emit WinningsClaimed(msg.sender, payout);
     }
 
-    function claimRefund() external returns (uint256 refund) {
+    function claimRefund() public returns (uint256 refund) {
         if (state != MarketState.INVALID) revert Nimbus_MarketNotInvalid();
         if (hasClaimed[msg.sender]) revert Nimbus_AlreadyClaimed();
         
@@ -213,7 +193,7 @@ contract PredictionMarket is IPredictionMarket, PMAMM {
         emit WinningsClaimed(msg.sender, refund);
     }
 
-    function collectFees() external {
+    function collectFees() public {
         if (msg.sender != FEE_RECIPIENT) revert Nimbus_Unauthorized();
         if (accumulatedFees == 0) revert Nimbus_NoFees();
         
@@ -223,6 +203,33 @@ contract PredictionMarket is IPredictionMarket, PMAMM {
         TOKEN.safeTransfer(FEE_RECIPIENT, fees);
         
         emit FeesCollected(FEE_RECIPIENT, fees);
+    }
+
+    function resolve(bool _outcome) public {
+        if (msg.sender != RESOLVER) revert Nimbus_Unauthorized();
+        if (block.timestamp < RESOLUTION_TIME) revert Nimbus_TooEarly();
+        if (state == MarketState.RESOLVED) revert Nimbus_MarketAlreadyResolved();
+        
+        outcome = _outcome;
+        state = MarketState.RESOLVED;
+        
+        emit MarketResolved(_outcome, block.timestamp);
+    }
+
+    function invalidate() public {
+        if (msg.sender != RESOLVER && msg.sender != CREATOR) revert Nimbus_Unauthorized();
+        if (state == MarketState.RESOLVED) revert Nimbus_MarketAlreadyResolved();
+        
+        state = MarketState.INVALID;
+        
+        emit MarketInvalidated(block.timestamp);
+    }
+
+    function forceClose() public {
+        if (block.timestamp < END_TIME) revert Nimbus_TooEarly();
+        if (state != MarketState.OPEN) revert Nimbus_NotOpen();
+        
+        state = MarketState.CLOSED;
     }
 
     function getBuyQuote(bool isYes, uint256 amount) public view returns (uint256 shares, Prices memory newPrices) {
@@ -248,11 +255,11 @@ contract PredictionMarket is IPredictionMarket, PMAMM {
         cost = _normalizeAmountTo18Decimals(uint256(cost18));
     }
 
-    function getUserPosition(address user) external view returns (UserPosition memory) {
+    function getUserPosition(address user) public view returns (UserPosition memory) {
         return userPosition[user];
     }
 
-    function getMarketInfo() external view
+    function getMarketInfo() public view
         returns (
             string memory, string memory, address, address,
             uint96, uint64, MarketState, bool, Prices memory,
@@ -273,13 +280,6 @@ contract PredictionMarket is IPredictionMarket, PMAMM {
             yReserve,
             collateralPool
         );
-    }
-
-    function forceClose() external {
-        if (block.timestamp < END_TIME) revert Nimbus_TooEarly();
-        if (state != MarketState.OPEN) revert Nimbus_NotOpen();
-        
-        state = MarketState.CLOSED;
     }
 
     function _normalizeAmountTo18Decimals(uint256 amount) internal view returns (uint256 normalizedAmount) {
