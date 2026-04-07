@@ -15,7 +15,7 @@ jobs:
           cache: 'npm'       # Optional: caches dependencies for speed
 
       - name: Install dependencies
-        run: npm install
+        run: npm ci
 
       - uses: actions/checkout@v4
         with:
@@ -29,6 +29,6 @@ jobs:
           forge --version
 
       - name: Run Hardhat tests
-        run: npx hardhat test
+        run: npm run test
         env:
           PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}

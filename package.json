@@ -2,7 +2,8 @@
   "name": "hardhat-project",
   "scripts": {
     "build": "forge b && npx hardhat compile",
-    "stage": "git add . && git commit"
+    "stage": "git add . && git commit",
+    "test": "npx hardhat test"
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-foundry": "^1.2.1",
