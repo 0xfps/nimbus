@@ -18,6 +18,7 @@ interface IPredictionMarket {
     error Nimbus_InvalidAmount();
     error Nimbus_MarketAlreadyResolved();
     error Nimbus_MarketClosed();
+    error Nimbus_MarketInvalid();
     error Nimbus_MarketNotClosed();
     error Nimbus_MarketNotInvalid();
     error Nimbus_MarketNotResolved();

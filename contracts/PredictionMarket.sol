@@ -28,7 +28,7 @@ contract PredictionMarket is IPredictionMarket, PMAMM {
     address public immutable RESOLVER;
     address public immutable FEE_RECIPIENT;
 
-    uint64 public immutable RESOLUTION_TIME;
+    uint96 public resolutionTime;
 
     MarketState public state;
 
@@ -207,17 +207,20 @@ contract PredictionMarket is IPredictionMarket, PMAMM {
 
     function resolve(bool _outcome) public {
         if (msg.sender != RESOLVER) revert Nimbus_Unauthorized();
-        if (block.timestamp < RESOLUTION_TIME) revert Nimbus_TooEarly();
+        if (block.timestamp < END_TIME) revert Nimbus_TooEarly();
         if (state == MarketState.RESOLVED) revert Nimbus_MarketAlreadyResolved();
+        if (state == MarketState.INVALID) revert Nimbus_MarketInvalid();
         
         outcome = _outcome;
         state = MarketState.RESOLVED;
+        resolutionTime = uint96(block.timestamp);
         
         emit MarketResolved(_outcome, block.timestamp);
     }
 
     function invalidate() public {
         if (msg.sender != RESOLVER && msg.sender != CREATOR) revert Nimbus_Unauthorized();
+        if (state == MarketState.CLOSED) revert Nimbus_MarketClosed();
         if (state == MarketState.RESOLVED) revert Nimbus_MarketAlreadyResolved();
         
         state = MarketState.INVALID;
@@ -262,7 +265,7 @@ contract PredictionMarket is IPredictionMarket, PMAMM {
     function getMarketInfo() public view
         returns (
             string memory, string memory, address, address,
-            uint96, uint64, MarketState, bool, Prices memory,
+            uint96, uint96, MarketState, bool, Prices memory,
             int256,int256, uint256
         )
     {
@@ -272,7 +275,7 @@ contract PredictionMarket is IPredictionMarket, PMAMM {
             CREATOR,
             RESOLVER,
             END_TIME,
-            RESOLUTION_TIME,
+            resolutionTime,
             state,
             outcome,
             getPriceFromReserves(),

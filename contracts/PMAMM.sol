@@ -30,7 +30,7 @@ abstract contract PMAMM {
     }
 
     function getEffectiveLiquidity() public view returns (int256 leff) {
-        if (END_TIME < block.timestamp) return 0;
+        if (END_TIME < block.timestamp) return int256(uint256(LIQUIDITY_FACTOR));
         return int256(LIQUIDITY_FACTOR * MathLib.sqrt(END_TIME - block.timestamp));
     }
 

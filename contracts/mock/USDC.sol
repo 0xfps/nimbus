@@ -7,4 +7,8 @@ contract USDC is ERC20 ("USDC", "USDC") {
     function mint(address to, uint256 amount) public {
         _mint(to, amount);
     }
+
+    function decimals() public pure override returns (uint8) {
+        return 6;
+    }
 }
