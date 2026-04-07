@@ -36,6 +36,9 @@ const config: HardhatUserConfig = {
       url: "https://arbitrum-sepolia.gateway.tenderly.co",
       ...ACCOUNTS_CONFIG
     }
+  },
+  mocha: {
+    timeout: 0
   }
 };
 

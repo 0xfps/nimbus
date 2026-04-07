@@ -23,9 +23,9 @@ contract PredictionMarketFactory is IPredictionMarketFactory {
         _;
     }
 
-    constructor(address token) {
+    constructor(address token, address _owner) {
         TOKEN = token;
-        owner = msg.sender;
+        owner = _owner;
         approveResolver(msg.sender);
     }
 
