@@ -30,7 +30,7 @@ jobs:
     - name: Test-2
       uses: ambersun1234/hardhat-test-action@v1
       run: npx hardhat test
-      # with:
-      #   network: arbitrumSepolia
-      #   private_key: ${{ secrets.PRIVATE_KEY }}
-      #   rpc_url: ${{ secrets.RPC_URL }}
+      with:
+        network: arbitrumSepolia
+        private_key: ${{ secrets.PRIVATE_KEY }}
+        rpc_url: ${{ secrets.RPC_URL }}
