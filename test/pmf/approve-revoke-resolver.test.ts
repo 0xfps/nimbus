@@ -5,9 +5,11 @@ import deployPredictionMarketFactory from "../boilerplate/deploy-factory"
 import { expect } from "chai"
 import { Signer } from "ethers"
 import { fisk } from "../constants"
+import { ContractTransactionResponse } from "ethers"
 
 describe("Approve And Revoke Resolver Tests.", function () {
     let PredictionMarketFactory: PredictionMarketFactory, USDC: USDC, alice: Signer, bob: Signer
+    let tx: ContractTransactionResponse
 
     before(async function () {
         let { factory, usdc, deployer } = await deployPredictionMarketFactory()
@@ -33,7 +35,8 @@ describe("Approve And Revoke Resolver Tests.", function () {
         let isResolver = await PredictionMarketFactory.approvedResolvers(fisk)
         expect(isResolver).to.be.equal(false)
 
-        await PredictionMarketFactory.connect(alice).approveResolver(fisk)
+        tx = await PredictionMarketFactory.connect(alice).approveResolver(fisk)
+        await tx.wait()
 
         isResolver = await PredictionMarketFactory.approvedResolvers(fisk)
         expect(isResolver).to.be.equal(true)
@@ -52,7 +55,8 @@ describe("Approve And Revoke Resolver Tests.", function () {
     })
 
     it("Should revoke a resolver.", async function () {
-        await PredictionMarketFactory.connect(alice).revokeResolver(fisk)
+        tx = await PredictionMarketFactory.connect(alice).revokeResolver(fisk)
+        await tx.wait()
 
         const isResolver = await PredictionMarketFactory.approvedResolvers(fisk)
         expect(isResolver).to.be.equal(false)

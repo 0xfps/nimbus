@@ -6,6 +6,7 @@ import { expect } from "chai"
 import { Signer } from "ethers"
 import { dave, edgar, fisk } from "../constants"
 import { MarketCreationDataStruct } from "../../typechain-types/IPredictionMarketFactory"
+import { ContractTransactionResponse } from "ethers"
 
 describe("Create Binary Market Tests.", function () {
     let PredictionMarketFactory: PredictionMarketFactory,
@@ -13,7 +14,8 @@ describe("Create Binary Market Tests.", function () {
         alice: Signer,
         bob: Signer,
         aliceAddress: string,
-        bobAddress: string
+        bobAddress: string,
+        tx: ContractTransactionResponse
 
     before(async function () {
         let { factory, usdc, deployer } = await deployPredictionMarketFactory()
@@ -75,11 +77,13 @@ describe("Create Binary Market Tests.", function () {
         marketCreationData.endTime = (BigInt(new Date().getTime()) / BigInt(1000)) + BigInt(600_000)
         marketCreationData.feeRecipient = fisk
 
-        await PredictionMarketFactory.connect(alice).createBinaryMarket(marketCreationData)
+        tx = await PredictionMarketFactory.connect(alice).createBinaryMarket(marketCreationData)
+        await tx.wait()
         
         const newMarketCount = await PredictionMarketFactory.allMarketsLength()
 
-        await PredictionMarketFactory.connect(alice).createBinaryMarket(marketCreationData)
+        tx = await PredictionMarketFactory.connect(alice).createBinaryMarket(marketCreationData)
+        await tx.wait()
 
         const latestMarketCount = await PredictionMarketFactory.allMarketsLength()
 

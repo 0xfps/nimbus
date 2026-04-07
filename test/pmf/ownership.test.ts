@@ -3,9 +3,14 @@ import { PredictionMarketFactory, USDC } from "../../typechain-types"
 import deployPredictionMarketFactory from "../boilerplate/deploy-factory"
 import { expect } from "chai"
 import { Signer } from "ethers"
+import { ContractTransactionResponse } from "ethers"
 
 describe("Ownership Transfer Tests.", function () {
-    let PredictionMarketFactory: PredictionMarketFactory, USDC: USDC, alice: Signer, bob: Signer
+    let PredictionMarketFactory: PredictionMarketFactory,
+        USDC: USDC,
+        alice: Signer,
+        bob: Signer,
+        tx: ContractTransactionResponse
 
     before(async function () {
         let { factory, usdc, deployer } = await deployPredictionMarketFactory()
@@ -32,7 +37,8 @@ describe("Ownership Transfer Tests.", function () {
         let owner = await PredictionMarketFactory.owner()
         expect(owner).to.be.equal(await alice.getAddress())
 
-        await PredictionMarketFactory.connect(alice).transferOwnership(bobAddress)
+        tx = await PredictionMarketFactory.connect(alice).transferOwnership(bobAddress)
+        await tx.wait()
 
         owner = await PredictionMarketFactory.owner()
         expect(owner).to.be.equal(bobAddress)
