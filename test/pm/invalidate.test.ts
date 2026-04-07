@@ -6,7 +6,7 @@ import { MarketCreationDataStruct } from "../../typechain-types/IPredictionMarke
 import { ethers, helpers } from "hardhat"
 import { MarketState } from "../constants"
 
-describe("Prediction Market Deployment Tests.", function () {
+describe("Invalidate Market Tests.", function () {
     let PredictionMarket: PredictionMarket,
         marketData: MarketCreationDataStruct,
         marketDeployer: Signer,

@@ -21,7 +21,7 @@ contract PredictionMarket is IPredictionMarket, PMAMM {
     
     bool internal guard;
     uint16 public constant PRESET_LIQUIDITY_FACTOR = 10000;
-    uint16 public constant PLATFORM_FEE_BPS = 30;
+    uint16 public constant PLATFORM_FEE_BPS = 10;
 
     IERC20 public immutable TOKEN;
     address public immutable CREATOR;
@@ -255,7 +255,7 @@ contract PredictionMarket is IPredictionMarket, PMAMM {
         int256 newPrice = isYes ? newPrices.yesPrice : newPrices.noPrice;
 
         int256 cost18 = ((newPrice + price) * int256(shares)) / 2e18;
-        cost = _normalizeAmountTo18Decimals(uint256(cost18));
+        cost = _normalizeAmountToDefaultDecimals(uint256(cost18));
     }
 
     function getUserPosition(address user) public view returns (UserPosition memory) {
