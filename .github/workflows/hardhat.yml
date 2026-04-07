@@ -1,4 +1,4 @@
-name: Hardhat Tests
+name: hardhat-test
 on: [push]
 
 jobs:
@@ -16,6 +16,17 @@ jobs:
 
       - name: Install dependencies
         run: npm install
+
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+
+      - name: Show Forge version
+        run: |
+          forge --version
 
       - name: Run Hardhat tests
         run: npx hardhat test
