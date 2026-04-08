@@ -2,11 +2,17 @@
   "name": "hardhat-project",
   "scripts": {
     "build": "forge b && npx hardhat compile",
-    "stage": "git add . && git commit"
+    "stage": "git add . && git commit",
+    "test": "npx hardhat test"
   },
   "devDependencies": {
+    "@keep-network/hardhat-helpers": "^0.7.2",
     "@nomicfoundation/hardhat-foundry": "^1.2.1",
     "@nomicfoundation/hardhat-toolbox": "^6.1.2",
     "hardhat": "^2.28.6"
+  },
+  "dependencies": {
+    "@0xfps/pmamm-js": "^0.0.7",
+    "dotenv": "^17.4.1"
   }
 }

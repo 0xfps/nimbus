@@ -7,16 +7,16 @@ import { MathLib } from "./lib/MathLib.sol";
 import { Prices } from "./utils/Market.sol";
 
 abstract contract PMAMM {
-    int256 public constant MAX_PRICE = 1e18;
-    int256 public constant STARTING_PRICE = 5 * 1e17;
+    int64 public constant MAX_PRICE = 1e18;
+    int64 public constant STARTING_PRICE = 5 * 1e17;
 
     uint16 public immutable LIQUIDITY_FACTOR;
-    uint96 public immutable END_TIME; // @note Checked at PredictionMarket level.
+    uint96 public immutable END_TIME;
 
     // Price untracked via variable.
     // Price tracking happens with the getPriceFromReserves.
-    int256 public yReserve;
     int256 public xReserve;
+    int256 public yReserve;
 
     error PMAMM_XLiquidityInsufficient();
     error PMAMM_YLiquidityInsufficient();
@@ -24,13 +24,13 @@ abstract contract PMAMM {
     error PMAMM_YLiquidityDepleted();
 
     constructor(uint16 liquidityFactor, uint96 endTime) {
-        LIQUIDITY_FACTOR = liquidityFactor == 0 ? 100 : liquidityFactor;
+        LIQUIDITY_FACTOR = liquidityFactor == 0 ? 10000 : liquidityFactor;
         END_TIME = endTime;
         (xReserve, yReserve) = _getReservesFromStartingPrice();
     }
 
     function getEffectiveLiquidity() public view returns (int256 leff) {
-        if (END_TIME < block.timestamp) return 0;
+        if (END_TIME < block.timestamp) return int256(uint256(LIQUIDITY_FACTOR));
         return int256(LIQUIDITY_FACTOR * MathLib.sqrt(END_TIME - block.timestamp));
     }
 
@@ -114,16 +114,26 @@ abstract contract PMAMM {
         );
     }
 
-    function _getReservesFromStartingPrice() internal view returns (int256 x, int256 y) {
+    function _getPriceFromReserves(int256 x, int256 y) internal view returns (Prices memory prices) {
+        int256 leff = getEffectiveLiquidity();
+        int256 z = (y - x) / leff;
+        int256 xPrice = Gaussian.cdf(z);
+        int256 yPrice = MAX_PRICE - xPrice;
+
+        return Prices(xPrice, yPrice);
+    }
+
+    function _getReservesFromStartingPrice() private view returns (int256 x, int256 y) {
         int256 leff = getEffectiveLiquidity();
         int256 z = Gaussian.ppf(STARTING_PRICE);
         int256 diff = z * leff; // Returns diff in 1e18.
         // Keeps y in 1e18 by eliminating the 1e18 in STARTING_PRICE.
+        // Gaussian returns in 1e18, so it's 1e18 + 1e18.
         y = ((diff * STARTING_PRICE) / 1e18) + (leff * Gaussian.pdf(z));
         x = y - diff;
     }
 
-    function _getMinAndMaxYReservesForNewXReserve(int256 _currentYReserve, int256 _newXReserve, int256 leff) internal pure returns (int256, int256) {
+    function _getMinAndMaxYReservesForNewXReserve(int256 _currentYReserve, int256 _newXReserve, int256 leff) private pure returns (int256, int256) {
         int256 minYReserve; int256 maxYReserve;
         bool minYEvaluation; bool maxYEvaluation;
         int256 margin = 5000e18;
@@ -146,7 +156,7 @@ abstract contract PMAMM {
         return (minYReserve, maxYReserve);
     }
 
-    function _getMinAndMaxXReservesForNewYReserve(int256 _currentXReserve, int256 _newYReserve, int256 leff) internal pure returns (int256, int256) {
+    function _getMinAndMaxXReservesForNewYReserve(int256 _currentXReserve, int256 _newYReserve, int256 leff) private pure returns (int256, int256) {
         int256 minXReserve; int256 maxXReserve;
         bool minXEvaluation; bool maxXEvaluation;
         int256 margin = 5000e18;
@@ -167,14 +177,5 @@ abstract contract PMAMM {
         minXReserve = currentXReserve;
 
         return (minXReserve, maxXReserve);
-    }
-
-    function _getPriceFromReserves(int256 x, int256 y) public view returns (Prices memory prices) {
-        int256 leff = getEffectiveLiquidity();
-        int256 z = (y - x) / leff;
-        int256 xPrice = Gaussian.cdf(z);
-        int256 yPrice = MAX_PRICE - xPrice;
-
-        return Prices(xPrice, yPrice);
     }
 }
