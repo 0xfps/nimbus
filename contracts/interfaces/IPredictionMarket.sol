@@ -12,6 +12,7 @@ interface IPredictionMarket {
     event WinningsClaimed(address indexed user, uint256 amount);
 
     error Nimbus_AlreadyClaimed();
+    error Nimbus_DeflatedCost();
     error Nimbus_InflatedCost();
     error Nimbus_InsufficientLiquidity();
     error Nimbus_InsufficientAmount();

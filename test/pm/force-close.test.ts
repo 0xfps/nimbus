@@ -28,7 +28,7 @@ describe("Force Close Tests.", function () {
         assertMarketState(MarketState.OPEN)
     })
 
-    it("Should revert due to being not open,i.e. resolved.", async function () {
+    it("Should revert due to being not open, i.e. resolved.", async function () {
         await helpers.snapshot.createSnapshot()
         await helpers.time.increaseTime(TWO_WEEKS + 3_000)
 

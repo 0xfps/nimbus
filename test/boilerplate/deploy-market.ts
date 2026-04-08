@@ -22,7 +22,7 @@ export default async function deployMarket(): Promise<MarketData> {
         marketType: 0,
         creator: await deployer.getAddress(),
         resolver: await deployer.getAddress(),
-        feeRecipient: edgar,
+        feeRecipient: await deployer.getAddress(),
         platformFeeBps: 30,
         question: "Messi vs Ronaldo?",
         description: "Who, dead or alive is the best football player in the world?",

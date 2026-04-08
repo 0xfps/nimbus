@@ -15,8 +15,8 @@ abstract contract PMAMM {
 
     // Price untracked via variable.
     // Price tracking happens with the getPriceFromReserves.
-    int256 public yReserve;
     int256 public xReserve;
+    int256 public yReserve;
 
     error PMAMM_XLiquidityInsufficient();
     error PMAMM_YLiquidityInsufficient();

@@ -108,7 +108,7 @@ contract PredictionMarket is IPredictionMarket, PMAMM {
         uint256 tradingAmount = costInUsdc - platformFee;
         collateralPool += tradingAmount;
 
-        TOKEN.safeTransferFrom(address(this), msg.sender, balance);
+        TOKEN.safeTransfer(msg.sender, balance);
 
         emit Buy(msg.sender, isYes, shares, costInUsdc);
     }
@@ -144,13 +144,13 @@ contract PredictionMarket is IPredictionMarket, PMAMM {
 
         // Possible bug here in cost of sale computation.
         int256 cost = ((currentPrice + newPrice) * int256(shares)) / 2e18;
-        uint256 costInUsdc = _normalizeAmountTo18Decimals(uint256(cost));
+        uint256 costInUsdc = _normalizeAmountToDefaultDecimals(uint256(cost));
 
-        if (costInUsdc > minReturn) revert Nimbus_InflatedCost();
+        if (costInUsdc < minReturn) revert Nimbus_DeflatedCost();
 
         collateralPool -= costInUsdc;
 
-        TOKEN.safeTransferFrom(address(this), msg.sender, costInUsdc);
+        TOKEN.safeTransfer(msg.sender, costInUsdc);
 
         emit Sell(msg.sender, isYes, shares, costInUsdc);
     }
